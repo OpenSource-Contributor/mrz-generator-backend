@@ -2,9 +2,7 @@ package com.ocr.controller;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.logging.Logger;
@@ -12,42 +10,43 @@ import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 
 import com.ocr.model.Passport;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import com.ocr.model.Request;
+import org.springframework.web.bind.annotation.*;
 
 import com.ocr.model.OcrModel;
 import net.sourceforge.tess4j.ITesseract;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
+import sun.misc.BASE64Decoder;
 
 @RestController
+@CrossOrigin(origins = {"*"})
 public class OcrController
 {
 
 	@PostMapping("/api/ocr")
-
-	public Passport DoOCR( @RequestParam("DestinationLanguage") String destinationLanguage, @RequestParam("Image") MultipartFile image ) throws IOException
+	public Passport DoOCR( @RequestBody Request requestBody ) throws IOException
 	{
+		String destinationLanguage = requestBody.getLanguage();
+		String imageBase64 = requestBody.getImage();
+		BufferedImage bufferedImage = decodeToImage(imageBase64);
 
 		OcrModel request = new OcrModel();
 		request.setDestinationLanguage( destinationLanguage );
-		request.setImage( image );
 
 		ITesseract instance = new Tesseract();
 
 		try
 		{
 
-			BufferedImage in = ImageIO.read( convert( image ) );
+			BufferedImage in = ImageIO.read( convert( bufferedImage ) );
 
 			BufferedImage newImage = new BufferedImage( in.getWidth(), in.getHeight(), BufferedImage.TYPE_INT_ARGB );
 
 			Graphics2D g = newImage.createGraphics();
 			g.drawImage( in, 0, 0, null );
 			g.dispose();
-
+//
 			instance.setLanguage( request.getDestinationLanguage() );
 			instance.setDatapath( "D:\\Research\\Java\\springboot-tesseract-ocr\\tessdata" );
 
@@ -61,7 +60,7 @@ public class OcrController
 			}
 
 		}
-		catch ( TesseractException | IOException e )
+		catch ( TesseractException e )
 		{
 			System.err.println( e.getMessage() );
 			return null;
@@ -69,12 +68,21 @@ public class OcrController
 
 	}
 
-	public static File convert( MultipartFile file ) throws IOException
+//	public static File convert( MultipartFile file ) throws IOException
+//	{
+//		File convFile = new File( file.getOriginalFilename() );
+//		convFile.createNewFile();
+//		FileOutputStream fos = new FileOutputStream( convFile );
+//		fos.write( file.getBytes() );
+//		fos.close();
+//		return convFile;
+//	}
+	public static File convert( BufferedImage file ) throws IOException
 	{
-		File convFile = new File( file.getOriginalFilename() );
+		File convFile = new File( "1.jpeg");
 		convFile.createNewFile();
 		FileOutputStream fos = new FileOutputStream( convFile );
-		fos.write( file.getBytes() );
+		ImageIO.write( file, "jpeg", fos );
 		fos.close();
 		return convFile;
 	}
@@ -152,4 +160,19 @@ public class OcrController
 		return passport;
 	}
 
+	public BufferedImage decodeToImage(String imageString) {
+
+		BufferedImage image = null;
+		byte[] imageByte;
+		try {
+			BASE64Decoder decoder = new BASE64Decoder();
+			imageByte = decoder.decodeBuffer(imageString);
+			ByteArrayInputStream bis = new ByteArrayInputStream(imageByte);
+			image = ImageIO.read(bis);
+			bis.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return image;
+	}
 }
